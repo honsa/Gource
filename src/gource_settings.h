@@ -18,7 +18,7 @@
 #ifndef GOURCE_SETTINGS_H
 #define GOURCE_SETTINGS_H
 
-#define GOURCE_VERSION "0.50"
+#define GOURCE_VERSION "0.56"
 
 #include "core/texture.h"
 #include "core/settings.h"
@@ -44,6 +44,8 @@ public:
 
     bool disable_auto_rotate;
 
+    bool disable_input;
+
     bool show_key;
 
     std::string load_config;
@@ -68,10 +70,14 @@ public:
     bool stop_at_end;
     bool dont_stop;
     bool no_time_travel;
+    bool fixed_user_size;
+    bool author_time;
 
     float auto_skip_seconds;
     float days_per_second;
     float file_idle_time;
+    float file_idle_time_at_end;
+    float loop_delay_seconds;
 
     bool loop;
 
@@ -102,7 +108,17 @@ public:
 
     std::string font_file;
     int font_size;
+    int filename_font_size;
+    int dirname_font_size;
+    int user_font_size;
     vec3 font_colour;
+    float font_scale;
+    bool default_font_scale;
+
+    int scaled_font_size;
+    int scaled_filename_font_size;
+    int scaled_dirname_font_size;
+    int scaled_user_font_size;
 
     float elasticity;
 
@@ -157,6 +173,8 @@ public:
     GourceSettings();
 
     void setGourceDefaults();
+
+    void setScaledFontSizes();
 
     void importGourceSettings(ConfFile& conf, ConfSection* gource_settings = 0);
 

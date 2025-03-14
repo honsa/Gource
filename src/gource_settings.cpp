@@ -43,7 +43,7 @@ void GourceSettings::help(bool extended_help) {
 
 #ifdef _WIN32
     //resize window to fit help message
-    SDLApp::resizeConsole(1000);
+    SDLApp::resizeConsole(1040);
     SDLApp::showConsole(true);
 #endif
 
@@ -56,6 +56,9 @@ void GourceSettings::help(bool extended_help) {
     printf("  -f, --fullscreen                 Fullscreen\n");
     printf("      --screen SCREEN              Screen number\n");
     printf("      --multi-sampling             Enable multi-sampling\n");
+#ifndef _WIN32
+    printf("      --high-dpi                   Request a high DPI display\n");
+#endif
     printf("      --no-vsync                   Disable vsync\n\n");
 
     printf("  --start-date 'YYYY-MM-DD hh:mm:ss +tz'  Start at a date and optional time\n");
@@ -74,6 +77,8 @@ void GourceSettings::help(bool extended_help) {
     printf("      --realtime                   Realtime playback speed\n");
     printf("      --no-time-travel             Use the time of the last commit if the\n");
     printf("                                   time of a commit is in the past\n");
+    printf("      --author-time                Use the timestamp of the author instead of\n");
+    printf("                                   the timestamp of the committer\n");
     printf("  -c, --time-scale SCALE           Change simulation time scale (default: 1.0)\n");
     printf("  -e, --elasticity FLOAT           Elasticity of nodes (default: 0.0)\n\n");
 
@@ -81,9 +86,11 @@ void GourceSettings::help(bool extended_help) {
 
     printf("  --user-image-dir DIRECTORY       Dir containing images to use as avatars\n");
     printf("  --default-user-image IMAGE       Default user image file\n");
+    printf("  --fixed-user-size                Use a fixed size throughout\n");
     printf("  --colour-images                  Colourize user images\n\n");
 
-    printf("  -i, --file-idle-time SECONDS     Time files remain idle (default: 0)\n\n");
+    printf("  -i, --file-idle-time SECONDS     Time files remain idle (default: 0)\n");
+    printf("  --file-idle-time-at-end SECONDS  Time files remain idle at end (default: 0)\n\n");
 
     printf("  --max-files NUMBER      Max number of files or 0 for no limit\n");
     printf("  --max-file-lag SECONDS  Max time files of a commit can take to appear\n\n");
@@ -117,10 +124,16 @@ if(extended_help) {
 
     printf("  --disable-auto-rotate    Disable automatic camera rotation\n\n");
 
+    printf("  --disable-input          Disable keyboard and mouse input\n\n");
+
     printf("  --date-format FORMAT     Specify display date string (strftime format)\n\n");
 
     printf("  --font-file FILE         Specify the font\n");
+    printf("  --font-scale SCALE       Scale the size of all fonts\n");
     printf("  --font-size SIZE         Font size used by date and title\n");
+    printf("  --file-font-size SIZE    Font size for filenames\n");
+    printf("  --dir-font-size SIZE     Font size for directory names\n");
+    printf("  --user-font-size SIZE    Font size for user names\n");
     printf("  --font-colour FFFFFF     Font colour used by date and title in hex\n\n");
 
     printf("  --file-extensions          Show filename extensions only\n");
@@ -134,6 +147,8 @@ if(extended_help) {
 
     printf("  --logo IMAGE             Logo to display in the foreground\n");
     printf("  --logo-offset XxY        Offset position of the logo\n\n");
+
+    printf("  --loop-delay-seconds SECONDS Seconds to delay before looping (default: 3)\n\n");
 
     printf("  --title TITLE            Set a title\n\n");
 
@@ -260,11 +275,14 @@ GourceSettings::GourceSettings() {
     arg_types["highlight-dirs"]          = "bool";
     arg_types["file-extensions"]         = "bool";
     arg_types["file-extension-fallback"] = "bool";
+    arg_types["fixed-user-size"]         = "bool";
+    arg_types["author-time"]             = "bool";
     arg_types["key"]                     = "bool";
     arg_types["ffp"]                     = "bool";
 
     arg_types["disable-auto-rotate"] = "bool";
     arg_types["disable-auto-skip"]   = "bool";
+    arg_types["disable-input"]       = "bool";
 
     arg_types["git-log-command"]= "bool";
     arg_types["cvs-exp-command"]= "bool";
@@ -284,9 +302,14 @@ GourceSettings::GourceSettings() {
     arg_types["padding"]           = "float";
     arg_types["time-scale"]        = "float";
     arg_types["dir-name-position"] = "float";
+    arg_types["loop-delay-seconds"] = "float";
 
     arg_types["max-files"] = "int";
     arg_types["font-size"] = "int";
+    arg_types["font-scale"] = "float";
+    arg_types["file-font-size"] = "int";
+    arg_types["dir-font-size"] = "int";
+    arg_types["user-font-size"] = "int";
     arg_types["hash-seed"] = "int";
 
     arg_types["user-filter"]      = "multi-value";
@@ -308,6 +331,7 @@ GourceSettings::GourceSettings() {
     arg_types["log-command"]        = "string";
     arg_types["background-colour"]  = "string";
     arg_types["file-idle-time"]     = "string";
+    arg_types["file-idle-time-at-end"] = "string";
     arg_types["user-image-dir"]     = "string";
     arg_types["default-user-image"] = "string";
     arg_types["date-format"]        = "string";
@@ -366,24 +390,30 @@ void GourceSettings::setGourceDefaults() {
     stop_timestamp = 0;
     stop_date = "";
 
-    start_position = 0.0f;
-    stop_position  = 0.0f;
-    stop_at_time   = -1.0f;
-    stop_on_idle   = false;
-    stop_at_end    = false;
-    dont_stop      = false;
-    no_time_travel = false;
+    start_position  = 0.0f;
+    stop_position   = 0.0f;
+    stop_at_time    = -1.0f;
+    stop_on_idle    = false;
+    stop_at_end     = false;
+    dont_stop       = false;
+    no_time_travel  = false;
+    fixed_user_size = false;
+    author_time     = false;
 
     show_key = false;
 
     disable_auto_rotate = false;
 
-    auto_skip_seconds = 3.0f;
-    days_per_second   = 0.1f; // TODO: check this is right
-    file_idle_time    = 0.0f;
-    time_scale        = 1.0f;
+    disable_input = false;
+
+    auto_skip_seconds     = 3.0f;
+    days_per_second       = 0.1f; // TODO: check this is right
+    file_idle_time        = 0.0f;
+    file_idle_time_at_end = 0.0f;
+    time_scale            = 1.0f;
 
     loop = false;
+    loop_delay_seconds = 3.0f;
 
     logo = "";
     logo_offset = vec2(20.0f,20.0f);
@@ -411,8 +441,14 @@ void GourceSettings::setGourceDefaults() {
 
     title             = "";
 
+    font_scale = 1.0f;
+    default_font_scale = true;
     font_file = GOURCE_FONT_FILE;
     font_size = 16;
+    filename_font_size = 14;
+    dirname_font_size = 14;
+    user_font_size = 14;
+
     dir_colour       = vec3(1.0f);
     font_colour      = vec3(1.0f);
     highlight_colour = vec3(1.0f);
@@ -478,6 +514,16 @@ void GourceSettings::setGourceDefaults() {
         delete (*it);
     }
     user_show_filters.clear();
+
+
+    setScaledFontSizes();
+}
+
+void GourceSettings::setScaledFontSizes() {
+    scaled_font_size           = glm::clamp((int)(font_size * font_scale), 1, 100);
+    scaled_user_font_size      = glm::clamp((int)(user_font_size * font_scale), 1, 100);
+    scaled_dirname_font_size   = glm::clamp((int)(dirname_font_size * font_scale), 1, 100);
+    scaled_filename_font_size  = glm::clamp((int)(filename_font_size * font_scale), 1, 100);
 }
 
 void GourceSettings::commandLineOption(const std::string& name, const std::string& value) {
@@ -671,8 +717,23 @@ void GourceSettings::importGourceSettings(ConfFile& conffile, ConfSection* gourc
         auto_skip_seconds = -1.0;
     }
 
+    if(gource_settings->getBool("disable-input")) {
+        disable_input=true;
+    }
+
     if(gource_settings->getBool("loop")) {
         loop = true;
+    }
+
+    if((entry = gource_settings->getEntry("loop-delay-seconds")) != 0) {
+
+        if(!entry->hasValue()) conffile.entryException(entry, "specify loop-delay-seconds (float)");
+
+        loop_delay_seconds = entry->getFloat();
+
+        if(loop_delay_seconds<=0.0f) {
+            conffile.invalidValueException(entry);
+        }
     }
 
     if((entry = gource_settings->getEntry("git-branch")) != 0) {
@@ -776,7 +837,7 @@ void GourceSettings::importGourceSettings(ConfFile& conffile, ConfSection* gourc
 #else
             dirfile = p.filename().string();
 #endif
-            std::string file_ext = extension(p);
+            std::string file_ext = p.extension().string();
             boost::algorithm::to_lower(file_ext);
 
             if(file_ext != ".jpg" && file_ext != ".jpeg" && file_ext != ".png") continue;
@@ -927,6 +988,14 @@ void GourceSettings::importGourceSettings(ConfFile& conffile, ConfSection* gourc
 
         font_file = entry->getString();
 
+        boost::filesystem::path font_file_path(font_file);
+
+        if(!boost::filesystem::exists(font_file_path)) {
+            conffile.invalidValueException(entry);
+        }
+
+        font_file = boost::filesystem::canonical(font_file_path).string();
+
         if(font_file.empty()) {
            conffile.invalidValueException(entry);
         }
@@ -941,6 +1010,53 @@ void GourceSettings::importGourceSettings(ConfFile& conffile, ConfSection* gourc
         if(font_size<1 || font_size>100) {
             conffile.invalidValueException(entry);
         }
+    }
+
+    if((entry = gource_settings->getEntry("file-font-size")) != 0) {
+
+        if(!entry->hasValue()) conffile.entryException(entry, "specify font size");
+
+        filename_font_size = entry->getInt();
+
+        if(filename_font_size<1 || filename_font_size>100) {
+            conffile.invalidValueException(entry);
+        }
+    }
+
+    if((entry = gource_settings->getEntry("dir-font-size")) != 0) {
+
+        if(!entry->hasValue()) conffile.entryException(entry, "specify font size");
+
+        dirname_font_size = entry->getInt();
+
+        if(dirname_font_size<1 || dirname_font_size>100) {
+            conffile.invalidValueException(entry);
+        }
+    }
+
+    if((entry = gource_settings->getEntry("user-font-size")) != 0) {
+
+        if(!entry->hasValue()) conffile.entryException(entry, "specify font size");
+
+        user_font_size = entry->getInt();
+
+        if(user_font_size<1 || user_font_size>100) {
+            conffile.invalidValueException(entry);
+        }
+    }
+
+    if((entry = gource_settings->getEntry("font-scale")) != 0) {
+
+        if(!entry->hasValue()) conffile.entryException(entry, "specify font scale");
+
+        font_scale = entry->getFloat();
+        default_font_scale = false;
+
+        if(font_scale<0.0f || font_scale>10.0f) {
+            conffile.invalidValueException(entry);
+        }
+
+        setScaledFontSizes();
     }
 
     if((entry = gource_settings->getEntry("hash-seed")) != 0) {
@@ -1116,6 +1232,19 @@ void GourceSettings::importGourceSettings(ConfFile& conffile, ConfSection* gourc
         }
     }
 
+    if((entry = gource_settings->getEntry("file-idle-time-at-end")) != 0) {
+
+        if(!entry->hasValue()) conffile.entryException(entry, "specify file-idle-time-at-end (seconds)");
+
+        std::string file_idle_at_end_str = entry->getString();
+
+        file_idle_time_at_end = (float) atoi(file_idle_at_end_str.c_str());
+
+        if(file_idle_time_at_end<0.0f || (file_idle_time_at_end == 0.0f && file_idle_at_end_str[0] != '0') ) {
+            conffile.invalidValueException(entry);
+        }
+    }
+
     if((entry = gource_settings->getEntry("user-idle-time")) != 0) {
 
         if(!entry->hasValue()) conffile.entryException(entry, "specify user-idle-time (seconds)");
@@ -1247,6 +1376,14 @@ void GourceSettings::importGourceSettings(ConfFile& conffile, ConfSection* gourc
     //NOTE: this no longer does anything
     if(gource_settings->getBool("stop-on-idle")) {
         stop_on_idle = true;
+    }
+
+    if(gource_settings->getBool("fixed-user-size")) {
+        fixed_user_size = true;
+    }
+
+    if(gource_settings->getBool("author-time")) {
+        author_time = true;
     }
 
     if((entry = gource_settings->getEntry("max-files")) != 0) {

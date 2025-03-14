@@ -36,11 +36,22 @@ Gource::Gource(FrameExporter* exporter) {
         gGourceSettings.file_graphic = texturemanager.grab("file.png", true, GL_CLAMP_TO_EDGE);
     }
 
-    fontlarge = fontmanager.grab(gGourceSettings.font_file, 42);
+    if(gGourceSettings.default_font_scale) {
+        if(display.viewport_dpi_ratio.x > 1.0f) {
+            gGourceSettings.font_scale = display.viewport_dpi_ratio.x;
+        } else {
+            int threshold = 1600;
+            gGourceSettings.font_scale = (float) (1 + glm::max(0, display.height / threshold));
+        }
+        debugLog("setting font scale for resolution %d x %d to %.2f", display.width, display.height, gGourceSettings.font_scale);
+        gGourceSettings.setScaledFontSizes();
+    }
+
+    fontlarge = fontmanager.grab(gGourceSettings.font_file, 42 * gGourceSettings.font_scale);
     fontlarge.dropShadow(true);
     fontlarge.roundCoordinates(true);
 
-    fontmedium = fontmanager.grab(gGourceSettings.font_file, gGourceSettings.font_size);
+    fontmedium = fontmanager.grab(gGourceSettings.font_file, gGourceSettings.scaled_font_size);
     fontmedium.dropShadow(true);
     fontmedium.roundCoordinates(false);
 
@@ -49,9 +60,15 @@ Gource::Gource(FrameExporter* exporter) {
     fontcaption.roundCoordinates(false);
     fontcaption.alignTop(false);
 
-    font = fontmanager.grab(gGourceSettings.font_file, 14);
+    font = fontmanager.grab(gGourceSettings.font_file, 14 * gGourceSettings.font_scale);
     font.dropShadow(true);
     font.roundCoordinates(true);
+
+    fontdirname = fontmanager.grab(gGourceSettings.font_file, gGourceSettings.scaled_dirname_font_size);
+    fontdirname.dropShadow(true);
+    fontdirname.roundCoordinates(true);
+
+    slider.init();
 
     //only use bloom with alpha channel if transparent due to artifacts on some video cards
     std::string bloom_tga = gGourceSettings.transparent ? "bloom_alpha.tga" : "bloom.tga";
@@ -120,21 +137,22 @@ Gource::Gource(FrameExporter* exporter) {
     hoverUser = 0;
 
     date_x_offset = 0;
+    starting_z = -300.0f;
 
-    textbox = TextBox(fontmanager.grab(gGourceSettings.font_file, 18));
+    textbox = TextBox(fontmanager.grab(gGourceSettings.font_file, 18 * gGourceSettings.font_scale));
     textbox.setBrightness(0.5f);
     textbox.show();
 
     file_key = FileKey(1.0f);
 
-    camera = ZoomCamera(vec3(0,0, -300), vec3(0.0, 0.0, 0.0), gGourceSettings.camera_zoom_default, gGourceSettings.camera_zoom_max);
+    camera = ZoomCamera(vec3(0,0, starting_z), vec3(0.0, 0.0, 0.0), gGourceSettings.camera_zoom_default, gGourceSettings.camera_zoom_max);
     camera.setPadding(gGourceSettings.padding);
 
     setCameraMode(gGourceSettings.camera_mode);
 
     root = 0;
 
-    //min phsyics rate 60fps (ie maximum allowed delta 1.0/60)
+    //min physics rate 60fps (ie maximum allowed delta 1.0/60)
     max_tick_rate = 1.0 / 60.0;
     runtime = 0.0f;
     frameskip = 0;
@@ -319,7 +337,10 @@ void Gource::grabMouse(bool grab_mouse) {
 
 void Gource::mouseMove(SDL_MouseMotionEvent *e) {
     if(commitlog==0) return;
+    if(gGourceSettings.disable_input) return;
     if(gGourceSettings.hide_mouse) return;
+
+    // debugLog("mouse move %d, %d (change %d, %d)", e->x, e->y, e->xrel, e->yrel);
 
     if(grab_mouse) {
 #if not SDL_VERSION_ATLEAST(2,0,0)
@@ -399,6 +420,7 @@ void Gource::zoom(bool zoomin) {
 
 #if SDL_VERSION_ATLEAST(2,0,0)
 void Gource::mouseWheel(SDL_MouseWheelEvent *e) {
+    if(gGourceSettings.disable_input) return;
 
     if(e->y > 0) {
         zoom(true);
@@ -413,6 +435,7 @@ void Gource::mouseWheel(SDL_MouseWheelEvent *e) {
 
 void Gource::mouseClick(SDL_MouseButtonEvent *e) {
     if(commitlog==0) return;
+    if(gGourceSettings.disable_input) return;
     if(gGourceSettings.hide_mouse) return;
 
     //mouse click should stop the cursor being idle
@@ -630,6 +653,8 @@ void Gource::selectNextUser() {
 }
 
 void Gource::keyPress(SDL_KeyboardEvent *e) {
+    if (gGourceSettings.disable_input) return;
+
     if (e->type == SDL_KEYUP) return;
 
     if (e->type == SDL_KEYDOWN) {
@@ -680,7 +705,7 @@ void Gource::keyPress(SDL_KeyboardEvent *e) {
 
         if (e->keysym.sym == SDLK_m) {
 
-            //toggle mouse visiblity unless mouse clicked/pressed/dragged
+            //toggle mouse visibility unless mouse clicked/pressed/dragged
             if(!(mousedragged || mouseclicked || cursor.leftButtonPressed() )) {
 
                 if(!cursor.isHidden()) {
@@ -1052,7 +1077,7 @@ void Gource::seekTo(float percent) {
     commitlog->seekTo(percent);
 }
 
-Regex caption_regex("^(?:\\xEF\\xBB\\xBF)?([0-9]+)\\|(.+)$");
+Regex caption_regex("^(?:\\xEF\\xBB\\xBF)?([^|]+)\\|(.+)$");
 
 void Gource::loadCaptions() {
     if(!gGourceSettings.caption_file.size()) return;
@@ -1072,7 +1097,18 @@ void Gource::loadCaptions() {
 
         if(!caption_regex.match(line, &matches)) continue;
 
-        time_t timestamp    = atol(matches[0].c_str());
+        time_t timestamp;
+
+        // Allow timestamp to be a string
+        if(matches[0].size() > 1 && matches[0].find("-", 1) != std::string::npos) {
+            if(!SDLAppSettings::parseDateTime(matches[0], timestamp))
+                continue;
+        } else {
+            timestamp = (time_t) atoll(matches[0].c_str());
+            if(!timestamp && matches[0] != "0")
+                continue;
+        }
+
         std::string caption = RCommitLog::filter_utf8(matches[1]);
 
         //ignore older captions
@@ -1114,13 +1150,6 @@ void Gource::readLog() {
             break;
         }
 
-        if(gGourceSettings.no_time_travel) {
-            time_t check_time = commitqueue.empty() ? lasttime : commitqueue.back().timestamp;
-            if(commit.timestamp < check_time) {
-                commit.timestamp = check_time;
-            }
-        }
-
         commitqueue.push_back(commit);
     }
 
@@ -1146,6 +1175,10 @@ void Gource::readLog() {
        || (gGourceSettings.stop_position > 0.0 && commitlog->isSeekable() && (is_finished || last_percent >= gGourceSettings.stop_position))
     ) {
         stop_position_reached = true;
+    }
+
+    if((is_finished || stop_position_reached) && gGourceSettings.file_idle_time_at_end > 0.0f) {
+      gGourceSettings.file_idle_time = gGourceSettings.file_idle_time_at_end;
     }
 
     // useful to figure out where we have crashes
@@ -1671,10 +1704,12 @@ void Gource::logic(float t, float dt) {
     }
 
     //loop in attempt to find commits
-    if(commitqueue.empty() && commitlog->isSeekable() && gGourceSettings.loop) {
-        first_read=true;
-        seekTo(0.0);
-        readLog();
+    if(gGourceSettings.loop && commitqueue.empty() && commitlog->isSeekable()) {
+        if(idle_time >= gGourceSettings.loop_delay_seconds) {
+            first_read=true;
+            seekTo(0.0);
+            readLog();
+        }
     }
 
     if(currtime==0 && !commitqueue.empty()) {
@@ -1720,12 +1755,19 @@ void Gource::logic(float t, float dt) {
 
         processCommit(commit, t);
 
-        // allow for non linear time lines
-        if(lasttime > commit.timestamp) {
-            currtime = commit.timestamp;
+        if(gGourceSettings.no_time_travel) {
+            if(commit.timestamp > lasttime) {
+                lasttime = commit.timestamp;
+            }
+
+        } else {
+            // allow for non linear time lines
+            if(lasttime > commit.timestamp) {
+                currtime = commit.timestamp;
+            }
+            lasttime = commit.timestamp;
         }
 
-        lasttime = commit.timestamp;
         subseconds = 0.0;
 
         commitqueue.pop_front();
@@ -2226,7 +2268,11 @@ void Gource::updateVBOs(float dt) {
             float alpha = user->getAlpha();
             vec3 col   = user->getColour();
 
-            user_vbo.add(user->graphic->textureid, user->getPos() - user->dims*0.5f, user->dims, vec4(col.x, col.y, col.z, alpha));
+            vec2 scaled_dims = user->dims;
+
+            if(gGourceSettings.fixed_user_size) scaled_dims *= (-camera.getPos().z / -starting_z);
+
+            user_vbo.add(user->graphic->textureid, user->getPos() - scaled_dims*0.5f, scaled_dims, vec4(col.x, col.y, col.z, alpha));
 
             //draw actions
             user->updateActionsVBO(action_vbo);
@@ -2445,10 +2491,10 @@ void Gource::draw(float t, float dt) {
         fontmanager.startBuffer();
     }
 
-    font.roundCoordinates(false);
-    font.setColour(vec4(gGourceSettings.dir_colour, 1.0f));
+    fontdirname.roundCoordinates(false);
+    fontdirname.setColour(vec4(gGourceSettings.dir_colour, 1.0f));
 
-    root->drawNames(font);
+    root->drawNames(fontdirname);
 
    if(!(gGourceSettings.hide_usernames || gGourceSettings.hide_users)) {
         for(std::map<std::string,RUser*>::iterator it = users.begin(); it!=users.end(); it++) {
@@ -2570,11 +2616,11 @@ void Gource::draw(float t, float dt) {
 
     if(splash>0.0f) {
         int logowidth = fontlarge.getWidth("Gource");
-        int logoheight = 100;
+        int logoheight = 100 * gGourceSettings.font_scale;
         int cwidth    = font.getWidth("Software Version Control Visualization");
         int awidth    = font.getWidth("(C) 2009 Andrew Caudwell");
 
-        vec2 corner(display.width/2 - logowidth/2 - 30.0f, display.height/2 - 40);
+        vec2 corner(display.width/2 - logowidth/2 - 30.0f * gGourceSettings.font_scale, display.height/2 - 40 * gGourceSettings.font_scale);
 
         glDisable(GL_TEXTURE_2D);
         glColor4f(0.0f, 0.5f, 1.0f, splash * 0.015f);
@@ -2588,11 +2634,11 @@ void Gource::draw(float t, float dt) {
         glEnable(GL_TEXTURE_2D);
 
         fontlarge.setColour(vec4(1.0f));
-        fontlarge.draw(display.width/2 - logowidth/2,display.height/2 - 30, "Gource");
+        fontlarge.draw(display.width/2 - logowidth/2,display.height/2 - 30 * gGourceSettings.font_scale, "Gource");
 
         font.setColour(vec4(1.0f));
-        font.draw(display.width/2 - cwidth/2,display.height/2 + 10, "Software Version Control Visualization");
-        font.draw(display.width/2 - awidth/2,display.height/2 + 30, "(C) 2009 Andrew Caudwell");
+        font.draw(display.width/2 - cwidth/2,display.height/2 + 10 * gGourceSettings.font_scale, "Software Version Control Visualization");
+        font.draw(display.width/2 - awidth/2,display.height/2 + 30 * gGourceSettings.font_scale, "(C) 2009 Andrew Caudwell");
     }
 
     // text using the specified font goes here

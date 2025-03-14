@@ -25,6 +25,15 @@ Fullscreen.
 \fB\-\-screen SCREEN\fR
 Set the number of the screen to display on.
 .TP
+\fB\-\-high\-dpi\fR
+Request a high DPI display when creating the window.
+
+On some platforms such as MacOS, the window resolution is specified in points instead of pixels.
+The \-\-high-dpi flag may be required to access some higher resolutions.
+
+E.g. requesting a high DPI 800x600 window may produce a window that is 1600x1200 pixels.
+
+.TP
 \fB\-\-window\-position XxY\fR
 Initial window position on your desktop which may be made up of multiple monitors.
 
@@ -67,6 +76,9 @@ Stop (exit) at the end of the log / stream.
 \fB\-\-loop\fR
 Loop back to the start of the log when the end is reached.
 .TP
+\fB\-\-loop\-delay\-seconds SECONDS\fR
+Seconds to delay before looping.
+.TP
 \fB\-a, \-\-auto\-skip\-seconds SECONDS\fR
 Automatically skip to next entry if nothing happens for a specified number of seconds.
 .TP
@@ -79,11 +91,19 @@ Realtime playback speed.
 \fB\-\-no\-time\-travel\fR
 Use the time of the last commit if the time of a commit is in the past.
 .TP
+\fB\-\-author\-time\fR
+Use the timestamp of the author instead of the timestamp of the committer.
+.TP
 \fB\-c, \-\-time\-scale SCALE\fR
-Change simulation time scale.
+Change simulation time scale. This affects the movement speed of user avatars.
+
+E.g. 0.5 for half speed, 2 for double speed.
 .TP
 \fB\-i, \-\-file\-idle\-time SECONDS\fR
 Time in seconds files remain idle before they are removed or 0 for no limit.
+.TP
+\fB\-\-file\-idle\-time\-at\-end SECONDS\fR
+Time in seconds files remain idle at the end before they are removed.
 .TP
 \fB\-e, \-\-elasticity FLOAT\fR
 Elasticity of nodes.
@@ -100,8 +120,20 @@ Set a title
 \fB\-\-font\-file FILE\fR
 Specify the font. Should work with most font file formats supported by FreeType, such as TTF and OTF, among others.
 .TP
+\fB\-\-font\-scale SCALE\fR
+Scale the size of all fonts.
+.TP
 \fB\-\-font\-size SIZE\fR
 Font size used by the date and title.
+.TP
+\fB\-\-file\-font\-size SIZE\fR
+Font size of filenames.
+.TP
+\fB\-\-dir\-font\-size SIZE\fR
+Font size of directory names.
+.TP
+\fB\-\-user\-font\-size SIZE\fR
+Font size of user names.
 .TP
 \fB\-\-font\-colour FFFFFF\fR
 Font colour used by the date and title in hex.
@@ -184,6 +216,9 @@ Directory containing .jpg or .png images of users (eg "Full Name.png") to use as
 \fB\-\-default\-user\-image IMAGE\fR
 Path of .jpg to use as the default user image.
 .TP
+\fB\-\-fixed\-user\-size\fR
+Forces the size of the user image to remain fixed throughout.
+.TP
 \fB\-\-colour\-images\fR
 Colourize user images.
 .TP
@@ -225,6 +260,9 @@ Camera mode (overview,track).
 .TP
 \fB\-\-disable\-auto\-rotate\fR
 Disable automatic camera rotation.
+.TP
+\fB\-\-disable\-input\fR
+Disable keyboard and mouse input.
 .TP
 \fB\-\-hide DISPLAY_ELEMENT\fR
 Hide one or more display elements from the list below:
@@ -331,7 +369,7 @@ gource my\-cvs\-project.log
 If you want to use Gource with something other than the supported systems, there is a pipe ('|') delimited custom log format:
 
 .ti 10
-timestamp - A unix timestamp of when the update occurred.
+timestamp - An ISO 8601 or unix timestamp of when the update occurred.
 .ti 10
 username  - The name of the user who made the update.
 .ti 10
@@ -346,7 +384,7 @@ colour    - A colour for the file in hex (FFFFFF) format. Optional.
 Gource can display captions along the timeline by specifying a caption file (using \-\-caption\-file) in the pipe ('|') delimited format below:
 
 .ti 10
-timestamp - A unix timestamp of when to display the caption.
+timestamp - An ISO 8601 or unix timestamp of when to display the caption.
 .ti 10
 caption   - The caption
 
@@ -404,9 +442,11 @@ Interactive keyboard commands:
 .ti 10
 (R)   Toggle display of root directory edges
 .ti 10
+(<>)  Adjust time scale / user avatar movement speed
+.ti 10
 (+-)  Adjust simulation speed
 .ti 10
-(<>)  Adjust time scale
+(Keypad +-) Adjust camera zoom
 .ti 10
 (TAB) Cycle through visible users
 .ti 10

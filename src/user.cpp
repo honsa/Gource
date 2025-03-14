@@ -169,8 +169,6 @@ void RUser::applyForceToActions() {
 
         break;
     }
-
-
 }
 
 void RUser::colourize() {
@@ -184,7 +182,7 @@ void RUser::assignUserImage() {
 
     if(gGourceSettings.user_image_dir.size() > 0) {
 
-        //try thier username
+        //try their username
         // TODO: replace with map of name -> image of all pngs and jpgs in directory
         //gGourceSettings.user_image_dir + name + std::string(".jpg");
 
@@ -308,7 +306,7 @@ void RUser::updateFont() {
         font = fontmanager.grab(gGourceSettings.font_file, 18);
         font.dropShadow(true);
     } else {
-        font = fontmanager.grab(gGourceSettings.font_file, 14);
+        font = fontmanager.grab(gGourceSettings.font_file, gGourceSettings.scaled_user_font_size);
         font.dropShadow(true);
     }
 

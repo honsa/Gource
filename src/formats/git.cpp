@@ -18,6 +18,10 @@
 #include "git.h"
 #include "../gource_settings.h"
 
+#ifndef _MSC_VER
+#include <unistd.h>
+#endif
+
 // parse git log entries
 
 //git-log command notes:
@@ -61,9 +65,8 @@ void GitCommitLog::readGitVersion() {
         return;
     }
 
-    char version_str[1024];
-    in.read(version_str, sizeof(version_str));
-    version_str[sizeof(version_str)-1] = '\0';
+    std::string version_str;
+    std::getline(in, version_str);
     in.close();
 
     remove(temp_file.c_str());
@@ -85,7 +88,6 @@ void GitCommitLog::readGitVersion() {
 std::string GitCommitLog::logCommand() {
 
     std::string log_command = "git log "
-    "--pretty=format:user:%aN%n%ct "
     "--reverse --raw --encoding=UTF-8 "
     "--no-renames";
 
@@ -98,7 +100,13 @@ std::string GitCommitLog::logCommand() {
        || git_version_major > 2
        || (git_version_major == 2 && git_version_minor >= 10))
     {
-        log_command.append(" --no-show-signature");
+        log_command += " --no-show-signature";
+    }
+
+    if(gGourceSettings.author_time) {
+        log_command += " --pretty=format:user:%aN%n%at";
+    } else {
+        log_command += " --pretty=format:user:%aN%n%ct";
     }
 
     if(!gGourceSettings.start_date.empty()) {
@@ -173,25 +181,7 @@ BaseLog* GitCommitLog::generateLog(const std::string& dir) {
 
     int command_rc = systemCommand(cmd_buff);
 
-    if(command_rc != 0) {
-        chdir(cwd_buff);
-        return 0;
-    }
-
-    // check for new-enough Git version
-    // if %aN does not appear to be supported try %an
-    std::ifstream in(temp_file.c_str());
-    char firstBytes[9];
-    in.read(firstBytes, 8);
-    in.close();
-    firstBytes[8] = '\0';
-    if(!strcmp(firstBytes, "user:%aN")) {
-        char *pos = strstr(cmd_buff, "%aN");
-        pos[2] = 'n';
-        command_rc = systemCommand(cmd_buff);
-    }
-
-    //change back to original directoy
+    //change back to original directory
     chdir(cwd_buff);
 
     if(command_rc != 0) {

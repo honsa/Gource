@@ -1,39 +1,28 @@
+Gource
+======
 
-                             Gource
+https://gource.io
 
-              software version control visualization
+Description
+===========
 
-                Copyright (C) 2009 Andrew Caudwell
-
-                         http://gource.io
-
-Contents
-========
-
-1. Description
-2. Requirements
-3. Using Gource
-4. Copyright
-
-1. Description
-==============
-
-OpenGL-based 3D visualisation tool for source control repositories.
+Gource is a visualization tool for source control repositories.
 
 The repository is displayed as a tree where the root of the repository is the
 centre, directories are branches and files are leaves. Contributors to the
 source code appear and disappear as they contribute to specific files and
 directories.
 
-2. Requirements
-===============
+Requirements
+============
 
 Gource's display is rendered using OpenGL and requires a 3D accelerated video
 card to run.
 
-3. Using Gource
-===============
+Using Gource
+============
 
+```
 gource [options] [path]
 
 options:
@@ -47,6 +36,14 @@ options:
 
     --screen SCREEN
             Set the number of the screen to display on.
+
+    --high-dpi
+            Request a high DPI display when creating the window.
+
+            On some platforms such as MacOS, the window resolution is specified in points instead of pixels.
+            The --high-dpi flag may be required to access some higher resolutions.
+
+            E.g. requesting a high DPI 800x600 window may produce a window that is 1600x1200 pixels.
 
     --window-position XxY
             Initial window position on your desktop which may be made up of
@@ -97,6 +94,9 @@ options:
         --loop
             Loop back to the start of the log when the end is reached.
 
+        --loop-delay-seconds
+            Seconds to delay before looping.
+
     -a, --auto-skip-seconds SECONDS
             Skip to next entry if nothing happens for a number of seconds.
 
@@ -109,12 +109,21 @@ options:
         --no-time-travel
             Use the time of the last commit if the time of a commit is in the past.
 
+        --author-time
+            Use the timestamp of the author instead of the timestamp of the committer.
+
     -c, --time-scale SCALE
-            Change simulation time scale.
+            Change simulation time scale. This affects the movement speed of user avatars.
+
+            E.g. 0.5 for half speed, 2 for double speed.
 
     -i, --file-idle-time SECONDS
             Time in seconds files remain idle before they are removed or 0
             for no limit.
+
+        --file-idle-time-at-end SECONDS
+            Time in seconds files remain idle at the end before they are
+            removed.
 
     -e, --elasticity FLOAT
             Elasticity of nodes.
@@ -137,8 +146,20 @@ options:
     --font-file FILE
             Specify the font. Should work with most font file formats supported by FreeType, such as TTF and OTF, among others.
 
+    --font-scale SCALE
+            Scale the size of all fonts.
+
     --font-size SIZE
             Font size used by the date and title.
+
+    --file-font-size SIZE
+            Font size of filenames.
+
+    --dir-font-size SIZE
+            Font size of directory names
+
+    --user-font-size SIZE
+            Font size of user names.
 
     --font-colour FFFFFF
             Font colour used by the date and title in hex.
@@ -219,6 +240,9 @@ options:
     --default-user-image IMAGE
             Path of .jpg or .png to use as the default user image.
 
+    --fixed-user-size
+            Forces the size of the user image to remain fixed throughout.
+
     --colour-images
             Colourize user images.
 
@@ -264,6 +288,9 @@ options:
 
     --disable-auto-rotate
             Disable automatic camera rotation.
+
+    --disable-input
+            Disable keyboard and mouse input.
 
     --hide DISPLAY_ELEMENT
             Hide one or more display elements from the list below:
@@ -326,16 +353,21 @@ options:
 
             If path is omitted, gource will attempt to read a log from the
             current directory.
+```
 
 Git, Bazaar, Mercurial and SVN Examples:
 
 View the log of the repository in the current path:
 
+```
     gource
+```
 
 View the log of a project in the specified directory:
 
+```
     gource my-project-dir
+```
 
 For large projects, generating a log of the project history may take a long
 time. For centralized VCS like SVN, generating the log may also put load on
@@ -346,27 +378,33 @@ In these cases, you may like to save a copy of the log for later use.
 You can generate a log in the VCS specific log format using
 the --log-command VCS option:
 
+```
     cd my-svn-project
     `gource --log-command svn` > my-svn-project.log
     gource my-svn-project.log
+```
 
 You can also have Gource write a copy of the log file in its own format:
 
+```
     gource --output-custom-log my-project-custom.log
+```
 
 CVS Support:
 
 Use 'cvs2cl' to generate the log and then pass it to Gource:
 
+```
     cvs2cl --chrono --stdout --xml -g-q > my-cvs-project.log
     gource my-cvs-project.log
+```
 
 Custom Log Format:
 
 If you want to use Gource with something other than the supported systems,
 there is a pipe ('|') delimited custom log format:
 
-    timestamp - A unix timestamp of when the update occured.
+    timestamp - An ISO 8601 or unix timestamp of when the update occurred.
     username  - The name of the user who made the update.
     type      - initial for the update type - (A)dded, (M)odified or (D)eleted.
     file      - Path of the file updated.
@@ -377,21 +415,21 @@ Caption Log Format:
 Gource can display captions along the timeline by specifying a caption file
 (using --caption-file) in the pipe ('|') delimited format below:
 
-    timestamp - A unix timestamp of when to display the caption.
+    timestamp - An ISO 8601 or A unix timestamp of when to display the caption.
     caption   - The caption
 
 Recording Videos:
 
 See the guide on the homepage for examples of recording videos with Gource:
 
-    https://github.com/acaudwell/Gource/wiki/Videos
+https://github.com/acaudwell/Gource/wiki/Videos
 
 More Information:
 
 Visit the Gource homepage for guides and examples of using Gource with various
 version control systems:
 
-    http://gource.io
+https://gource.io
 
 Interface:
 
@@ -424,15 +462,16 @@ Interactive keyboard commands:
     (G)   Toggle display of users
     (T)   Toggle display of directory tree edges
     (R)   Toggle display of root directory edges
+    (<>)  Adjust time scale / user avatar movement speed
     (+-)  Adjust simulation speed
-    (<>)  Adjust time scale
+    (Keypad +-) Adjust camera zoom
     (TAB) Cycle through visible users
     (F12) Screenshot
     (Alt+Enter) Fullscreen toggle
     (ESC) Quit
 
-4. Copyright
-============
+Copyright
+=========
 
 Gource - software version control visualization
 Copyright (C) 2009 Andrew Caudwell <acaudwell@gmail.com>

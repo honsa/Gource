@@ -14,7 +14,7 @@ Gource requires the following libraries to compile (package names may vary):
 
     SDL 2.0 (libsdl2-dev)
     SDL Image 2.0 (libsdl2-image-dev)
-    PCRE (libpcre3-dev)
+    PCRE2 (libpcre2-dev)
     Freetype 2 (libfreetype6-dev)
     GLEW (libglew-dev)
     GLM >= 0.9.3 (libglm-dev)
@@ -62,6 +62,12 @@ By default Gource will install some GNU FreeFont TTF Fonts on your system.
 If you already have these fonts, you can configure Gource to use them with:
 
     ./configure --enable-ttf-font-dir=/path/to/freefont/
+
+You can also build Gource with a different font:
+
+    ./configure --enable-font-file=/path/to/alternate/font.ttf
+
+The font file format must be supported by Free Type 2.
 
 Gource includes a copy of TinyXML. To build against the system version of the
 library use:
